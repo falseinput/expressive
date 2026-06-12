@@ -40,7 +40,7 @@ colors = import "./colors.exp"
 Run
 
 ```bash
-npm i -g expc
+npm i -g @falseinput/expressive
 ```
 
 ## Use
