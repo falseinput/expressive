@@ -1,0 +1,159 @@
+@import "tailwindcss";
+@import "maplibre-gl/dist/maplibre-gl.css";
+
+/*
+ * Anchored base palette.
+ *
+ * These oklch values are the page as it renders before the first compile, and
+ * the floor every derived tint modulates. `page/theme.ts` overwrites the
+ * `--tint-*` properties on :root from the colors the compiler emitted, so the
+ * page and the maps restyle from one source. Every derived tint is clamped and
+ * every text tint is pushed to a WCAG ratio before it lands here.
+ */
+:root {
+  --tint-page: oklch(99% 0.002 250);
+  --tint-panel: oklch(96.5% 0.004 250);
+  --tint-panel-2: oklch(94% 0.005 250);
+  --tint-line: oklch(90% 0.006 250);
+  --tint-line-strong: oklch(78% 0.008 250);
+  --tint-control: oklch(100% 0 0);
+  --tint-ink: oklch(28% 0.012 250);
+  --tint-ink-muted: oklch(55% 0.01 250);
+  --tint-accent: oklch(48% 0.13 255);
+  --tint-mark: oklch(93% 0.05 95);
+  --tint-mark-ink: oklch(38% 0.11 55);
+
+  --tok-kw: oklch(48% 0.15 300);
+  --tok-fn: oklch(47% 0.13 255);
+  --tok-st: oklch(44% 0.11 150);
+  --tok-nu: oklch(48% 0.13 40);
+  --tok-cm: oklch(55% 0.012 250);
+
+  --ease-tint: cubic-bezier(0.33, 0.75, 0.15, 1);
+  --dur-tint: 320ms;
+}
+
+@theme inline {
+  --color-page: var(--tint-page);
+  --color-panel: var(--tint-panel);
+  --color-panel-2: var(--tint-panel-2);
+  --color-line: var(--tint-line);
+  --color-line-strong: var(--tint-line-strong);
+  --color-control: var(--tint-control);
+  --color-ink: var(--tint-ink);
+  --color-ink-muted: var(--tint-ink-muted);
+  --color-accent: var(--tint-accent);
+  --color-mark: var(--tint-mark);
+  --color-mark-ink: var(--tint-mark-ink);
+
+  /* Names the pre-existing parameter controls already use. */
+  --color-surface: var(--tint-page);
+  --color-surface-muted: var(--tint-panel);
+
+  --font-sans:
+    "Noto Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-mono:
+    "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+}
+
+html {
+  background: var(--tint-page);
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--tint-page);
+  color: var(--tint-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/*
+ * The retint. Custom properties cannot animate, so the transition lives on the
+ * properties that read them. Scoped to one subtree and four properties so a
+ * knob drag stays cheap.
+ */
+.retint,
+.retint *:not(.maplibregl-canvas):not(canvas) {
+  transition:
+    background-color var(--dur-tint) var(--ease-tint),
+    border-color var(--dur-tint) var(--ease-tint),
+    color var(--dur-tint) var(--ease-tint),
+    outline-color var(--dur-tint) var(--ease-tint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .retint,
+  .retint * {
+    transition: none !important;
+  }
+}
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible,
+[data-slot="slider-thumb"]:focus-visible,
+[role="slider"]:focus-visible {
+  outline: 2px solid var(--tint-accent);
+  outline-offset: 2px;
+}
+
+a {
+  color: var(--tint-accent);
+  text-underline-offset: 2px;
+}
+
+::selection {
+  background: var(--tint-mark);
+  color: var(--tint-mark-ink);
+}
+
+/* Source panes scroll sideways rather than wrap. Chrome makes an overflowing
+   scroller keyboard focusable without a tabindex, so it gets its own ring. */
+.pane-scroll:focus-visible {
+  outline: 2px solid var(--tint-accent);
+  outline-offset: -2px;
+}
+
+.pane-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--tint-line-strong) transparent;
+}
+.pane-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.pane-scroll::-webkit-scrollbar-thumb {
+  background: var(--tint-line-strong);
+  border-radius: 3px;
+}
+
+/* Attribution stays legible on every tint and wraps on a phone. */
+.maplibregl-ctrl-attrib.maplibregl-compact,
+.maplibregl-ctrl-attrib {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.5;
+  background: color-mix(in srgb, var(--tint-page) 88%, transparent);
+  color: var(--tint-ink-muted);
+  white-space: normal;
+  max-width: 100%;
+}
+.maplibregl-ctrl-attrib a {
+  color: var(--tint-ink-muted);
+}
+.maplibregl-ctrl-attrib-button {
+  background-color: var(--tint-page);
+}
+.maplibregl-ctrl-group {
+  background: var(--tint-control);
+}
+.maplibregl-ctrl-group button + button {
+  border-top-color: var(--tint-line);
+}

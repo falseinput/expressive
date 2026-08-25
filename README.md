@@ -8,6 +8,13 @@ The `expc` CLI automatically compiles and serves local `style.exp` files, and pr
 
 [Expressive Language Support](https://marketplace.visualstudio.com/items?itemName=falseinput.expressive-language-support) extension for Visual Studio Code provides syntax highlighting, autocomplete and more.
 
+## Try it
+
+[falseinput.github.io/expressive](https://falseinput.github.io/expressive) compiles a style in your browser. Move a parameter and the map recompiles as you drag.
+
+The page renders [openfreemap-expressive](https://github.com/falseinput/openfreemap-expressive), the OpenFreeMap Bright style rebuilt as parameters and layer modules. Read that repository to see how a full 119 layer style is put together, or fork it and change the parameters.
+
+This repository holds the README and the page. The language source is published to npm as [@falseinput/expressive](https://www.npmjs.com/package/@falseinput/expressive).
 
 See it in action:
 
@@ -90,6 +97,47 @@ Print the Expressive language reference and exit.
 expc docs
 ```
 
+### Rewriting existing MapLibre styles
+
+Start with changing style extension from .json to .exp and progressively split the style into smaller parts. Try using variables for things like sizes or colors.
+
+## Library
+
+The package also ships the compiler as a library. `compile` is one ES module with TypeScript declarations, and it runs the same on Node and in the browser.
+
+`compile` takes the files it compiles and never reads a disk. Keys are absolute POSIX-style paths, and `entryPath` names the program to compile.
+
+```js
+import { compile } from "@falseinput/expressive";
+
+const result = compile(
+  {
+    "/colors.exp": `{ "water": std.hsl(194, 98, 50) }`,
+    "/style.exp": `colors = import "./colors.exp"\n{ "version": 8, "layers": [] }`,
+  },
+  "/style.exp",
+);
+
+if (result.ok) {
+  console.log(result.json);
+} else {
+  console.error(result.errorDetails);
+}
+```
+
+The map is the whole file system the compiler sees. Imports resolve inside the entry file's directory and cannot escape it, so the caller decides what a style can read by deciding what goes in the map.
+
+On Node, `readStyle` fills that map from a directory. It collects `.exp` and `.json` files, keys them by their path below the directory, and skips symbolic links, `node_modules` and dot-directories, so nothing outside the directory reaches the map.
+
+```js
+import { compile } from "@falseinput/expressive";
+import { readStyle } from "@falseinput/expressive/fs";
+
+compile(readStyle("./styles/bright"), "/style.light.exp");
+```
+
+`compile` returns `{ ok: true, json }`, or `{ ok: false, errorDetails }` where each error carries `file`, `line`, `col`, `message` and `srcLine`.
+
 ## Language server
 
 Expressive comes with [Expressive Language Support](https://marketplace.visualstudio.com/items?itemName=falseinput.expressive-language-support) extension for Visual Studio Code.
@@ -127,6 +175,32 @@ get("road_width") * 0.3; // -> ["*", ["get", "road_width"], 0.3]
 2 * 3 + 1; // -> 7
 ```
 
+### Zoom curves
+
+Use `std.byZoom` and `std.stepByZoom` to write a zoom-varying value as its stops. Keys are zoom levels. Expressive sorts the stops by zoom ascending, the order MapLibre requires.
+
+```js
+// Interpolate between stops
+std.byZoom({ 12: 0.5, 20: 13 });
+// -> ["interpolate", ["linear"], ["zoom"], 12, 0.5, 20, 13]
+
+// Pass a base for exponential interpolation
+std.byZoom({ 12: 0.5, 20: 13 }, 1.2);
+// -> ["interpolate", ["exponential", 1.2], ["zoom"], 12, 0.5, 20, 13]
+
+// Step between stops. The first argument is the output below the first stop
+std.stepByZoom(0, { 14: 1 });
+// -> ["step", ["zoom"], 0, 14, 1]
+```
+
+Stop values are numbers, strings, colors, or expressions.
+
+```js
+water = std.hsl(194, 98, 50);
+std.byZoom({ 8: water, 12: std.darken(water, 30) });
+// -> ["interpolate", ["linear"], ["zoom"], 8, "hsla(194, 98%, 50%, 1)", 12, "hsla(194, 98%, 35%, 1)"]
+```
+
 ### Color functions
 
 Use color functions to manipulate and mix colors.
@@ -154,6 +228,8 @@ label_color = std.colorContrast(base);
 
 Expressive supports strings, numbers, booleans, arrays, and objects.
 
+Strings interpret the JSON escape sequences `\n`, `\t`, `\r`, `\b`, `\f`, `\"`, `\\`, `\/` and `\uXXXX`. Any other escape is an error. Use `\n` to stack label lines in `text-field`.
+
 ```js
 // string
 variant = "light"
@@ -180,6 +256,58 @@ typography = {
         true -> default_fontstack
     }
 }
+```
+
+### Object keys
+
+An object key is a quoted string, a number, or a bare identifier. Every key becomes a string in the output.
+
+```js
+// A number reads well for zoom levels
+{ 12: 0.5, 20: 13 }
+// -> { "12": 0.5, "20": 13 }
+
+// An identifier reads well for names you choose
+{ water: "blue", land: "sand" }
+// -> { "water": "blue", "land": "sand" }
+
+// Quotes carry any other name, such as a hyphenated MapLibre property
+{ "line-width": 3, "text-field": get("name") }
+```
+
+A numeric key normalizes to the number's value, the way JavaScript does. `1.50` and `1.5` are the same key `"1.5"`.
+
+```js
+{ 1.50: "a", 1.5: "b" }
+// -> { "1.5": "b" }
+```
+
+Two keys that normalize to the same string are a duplicate, whichever forms they use. Expressive reports `{ 12: 1, "12": 2 }` as an error.
+
+### Spread
+
+`...` copies the members of an object into an object, or the elements of an array into an array.
+
+```js
+base = {
+    "line-color": colors.roads,
+    "line-width": 1
+}
+
+// Members are applied in order, so a later member wins
+{ ...base, "line-width": 3 }
+// Evaluates to:
+// { "line-color": ..., "line-width": 3 }
+
+// Arrays inline their elements at the position of the spread
+default_fontstack = ["Noto-Sans", "sans-serif"]
+[ "Arial", ...default_fontstack ]
+```
+
+Spread copies one level. Nest another spread to merge deeper.
+
+```js
+{ ...layer, "paint": { ...layer.paint, "line-width": 3 } }
 ```
 
 ## Conditionals
@@ -255,6 +383,6 @@ Thank you! <3
 
 ## License
 
-Copyright (c) 2026 Zbigniew Matysek
+Copyright (c) 2026 Zbigniew Matysek (falseinput)
 
 See full license in LICENSE.
