@@ -10,7 +10,13 @@ export function Masthead() {
           href="#top"
           className="flex items-center gap-2 font-mono text-[13px] font-semibold tracking-[-0.01em] text-ink no-underline"
         >
-          <img src="/logo.png" alt="" width="18" height="18" className="shrink-0" />
+          <img
+            src={`${import.meta.env.BASE_URL}logo.png`}
+            alt=""
+            width="18"
+            height="18"
+            className="shrink-0"
+          />
           expressive
         </a>
 
