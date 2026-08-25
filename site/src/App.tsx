@@ -11,6 +11,7 @@ import { ColorSection } from "./page/sections/ColorSection.tsx";
 import { Studio, type Tier } from "./page/sections/Studio.tsx";
 import {
   Composition,
+  Diagnostics,
   Conditionals,
   Expressions,
   Toolchain,
@@ -108,6 +109,8 @@ export default function App() {
         <Conditionals />
 
         <Composition />
+
+        <Diagnostics />
 
         <Toolchain />
 

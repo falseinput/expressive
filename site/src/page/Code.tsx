@@ -6,7 +6,7 @@ import { Fragment, type ReactNode } from "react";
 import { FunctionToken } from "./FunctionHover.tsx";
 import { CLASS, segments, tokenize } from "./tokenize.ts";
 
-export { mark } from "./tokenize.ts";
+export { mark, squiggle } from "./tokenize.ts";
 
 type Props = {
   source: string;
@@ -29,16 +29,27 @@ export function Code({ source, lang = "exp", className }: Props) {
         </span>
       ),
     );
+    const run = segment.squiggled ? (
+      <span
+        key={(key += 1)}
+        className="decoration-[color:var(--tok-err)] decoration-wavy underline-offset-[4px] [text-decoration-line:underline] [text-decoration-skip-ink:none]"
+      >
+        {painted}
+      </span>
+    ) : (
+      painted
+    );
+
     nodes.push(
       segment.marked ? (
         <mark
           key={(key += 1)}
           className="rounded-[3px] bg-mark px-[3px] py-[1px] text-mark-ink [&_*]:text-mark-ink"
         >
-          {painted}
+          {run}
         </mark>
       ) : (
-        <Fragment key={(key += 1)}>{painted}</Fragment>
+        <Fragment key={(key += 1)}>{run}</Fragment>
       ),
     );
   }

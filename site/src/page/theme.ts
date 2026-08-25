@@ -60,6 +60,7 @@ const TOKENS: Array<[string, number, number]> = [
   ["--tok-fn", 255, 52],
   ["--tok-st", 150, 44],
   ["--tok-nu", 28, 62],
+  ["--tok-err", 20, 55],
 ];
 
 /**

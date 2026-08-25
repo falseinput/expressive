@@ -12,10 +12,17 @@ import { FUNCTION_DOCS } from "./functionDocs.ts";
 
 const MARK_OPEN = "‹";
 const MARK_CLOSE = "›";
+const SQUIGGLE_OPEN = "«";
+const SQUIGGLE_CLOSE = "»";
 
 /** Marks a literal as written by a knob. */
 export function mark(text: string | number): string {
   return `${MARK_OPEN}${text}${MARK_CLOSE}`;
+}
+
+/** Marks a token the compiler rejected, so it renders with an error underline. */
+export function squiggle(text: string): string {
+  return `${SQUIGGLE_OPEN}${text}${SQUIGGLE_CLOSE}`;
 }
 
 export type Kind = "kw" | "fn" | "ns" | "st" | "nu" | "cm" | "pu" | "id" | "ws";
@@ -133,17 +140,32 @@ export function tokenize(source: string, comments: boolean): Token[] {
   return tokens;
 }
 
-/** Splits a source into runs, flagging the ones a knob wrote. */
-export function segments(source: string): Array<{ text: string; marked: boolean }> {
-  return source
-    .split(MARK_OPEN)
-    .flatMap((chunk, position) => {
-      if (position === 0) return [{ text: chunk, marked: false }];
-      const [inside, ...rest] = chunk.split(MARK_CLOSE);
-      return [
-        { text: inside, marked: true },
-        { text: rest.join(MARK_CLOSE), marked: false },
-      ];
-    })
-    .filter((segment) => segment.text.length > 0);
+export type Segment = { text: string; marked: boolean; squiggled: boolean };
+
+/** Splits a source on one delimiter pair, flagging what sat inside it. */
+function split(
+  parts: Segment[],
+  open: string,
+  close: string,
+  flag: "marked" | "squiggled",
+): Segment[] {
+  return parts.flatMap((part) =>
+    part.text
+      .split(open)
+      .flatMap((chunk, position): Segment[] => {
+        if (position === 0) return [{ ...part, text: chunk }];
+        const [inside, ...rest] = chunk.split(close);
+        return [
+          { ...part, text: inside, [flag]: true },
+          { ...part, text: rest.join(close) },
+        ];
+      })
+      .filter((segment) => segment.text.length > 0),
+  );
+}
+
+/** Splits a source into runs, flagging the ones a knob wrote or the compiler rejected. */
+export function segments(source: string): Segment[] {
+  const whole: Segment[] = [{ text: source, marked: false, squiggled: false }];
+  return split(split(whole, MARK_OPEN, MARK_CLOSE, "marked"), SQUIGGLE_OPEN, SQUIGGLE_CLOSE, "squiggled");
 }

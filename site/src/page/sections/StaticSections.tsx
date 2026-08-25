@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Code } from "../Code.tsx";
+import { Code, squiggle } from "../Code.tsx";
 import { Pane } from "../Pane.tsx";
 import { Section, Term } from "../Section.tsx";
 import { cn } from "@/lib/utils.ts";
@@ -192,11 +192,12 @@ const CARDS: Card[] = [
     span: "lg:col-span-2",
   },
   {
-    title: "Useful error reporting",
+    title: "Agent ready",
     body: (
       <>
-        Compile errors name the file, line, and column. Type mismatches, duplicate keys,
-        unreachable branches, and missing properties fail the build.
+        The language is small and declarative, so a coding agent can read a whole style and change
+        it. Point one at a style you already have and it rewrites it as parameters and modules, or
+        have it write one from scratch.
       </>
     ),
     span: "lg:col-span-2",
@@ -212,6 +213,88 @@ const CARDS: Card[] = [
     span: "lg:col-span-2",
   },
 ];
+
+export function Diagnostics() {
+  return (
+    <Section
+      title="Errors point at the line"
+      deck="A style is compiled, so a mistake stops the build. Every error names the file, the line, and the column that produced it, and marks the token it read."
+      alt
+    >
+      <div className={PAIR}>
+        <Pane title="derive/colors.exp">
+          <Code
+            source={`canvas = std.hsl(30, 36, 96)
+
+{
+  "background-color": canvas,
+  "casing-color": std.${squiggle("lighen")}(canvas, 12),
+  "label-color": ${squiggle("std.hsl")}(0, 20)
+}`}
+          />
+        </Pane>
+
+        <Pane title="expc">
+          <div className="flex flex-col gap-3 p-3.5 font-mono text-[12px] leading-[1.6]">
+            <Diagnostic
+              message="Unknown stdlib function 'std.lighen'"
+              where="derive/colors.exp:5:23"
+              line={`  "casing-color": std.lighen(canvas, 12),`}
+              caret={22}
+            />
+            <Diagnostic
+              message="'std.hsl' expects at least 3 argument(s), got 2."
+              where="derive/colors.exp:6:18"
+              line={`  "label-color": std.hsl(0, 20)`}
+              caret={17}
+            />
+            <p className="text-ink-muted">Compilation failed with 2 errors.</p>
+          </div>
+        </Pane>
+      </div>
+    </Section>
+  );
+}
+
+function Diagnostic({
+  message,
+  where,
+  line,
+  caret,
+}: {
+  message: string;
+  where: string;
+  line: string;
+  caret: number;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-start gap-2">
+        <svg
+          viewBox="0 0 24 24"
+          width="13"
+          height="13"
+          fill="none"
+          stroke="var(--tok-err)"
+          strokeWidth="2"
+          strokeLinecap="round"
+          aria-hidden="true"
+          className="mt-[3px] shrink-0"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 8v5M12 16.5v.01" />
+        </svg>
+        <span className="text-[color:var(--tok-err)]">{message}</span>
+      </div>
+      <pre className="ml-[21px] overflow-x-auto text-ink-muted">
+        {line}
+        {"\n"}
+        {" ".repeat(caret)}^
+      </pre>
+      <span className="ml-[21px] text-[11px] text-ink-muted">{where}</span>
+    </div>
+  );
+}
 
 export function Toolchain() {
   return (
