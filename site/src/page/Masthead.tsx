@@ -27,8 +27,21 @@ export function Masthead() {
           aria-label="Expressive on npm"
           className="ml-auto flex items-center gap-2 rounded px-1.5 py-1 font-mono text-[11px] text-ink-muted no-underline hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true" focusable="false" className="shrink-0">
-            <path d="M0 8h24v7.5h-12V17H6.5v-1.5H0V8Zm1.5 6h2V9.5h1.5V14H6.5V9.5h1V14h1.5V8H1.5v6Zm9-6v7.5h3V14h3V8h-6Zm3 1.5h1.5V14H13.5V9.5ZM17 8v6h1.5V9.5H20V14h1V9.5h1.5V14H24V8h-7Z"/>
+          <svg
+            viewBox="0 0 24 24"
+            width="15"
+            height="15"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            focusable="false"
+            className="shrink-0"
+          >
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+            <path d="m3.3 7 8.7 5 8.7-5M12 22V12" />
           </svg>
           <span className="hidden sm:inline">npm</span>
         </a>
