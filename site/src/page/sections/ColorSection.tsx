@@ -105,11 +105,11 @@ waterHue = core.water.value.h + hueOffset
 
         <TabbedPane
           tabs={[
+            { title: "derive/tokens.exp", content: <Code source={derive} /> },
             {
               title: "params/light/core.json",
               content: <Code source={params} lang="json" />,
             },
-            { title: "derive/tokens.exp", content: <Code source={derive} /> },
           ]}
         />
 

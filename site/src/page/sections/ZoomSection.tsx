@@ -70,8 +70,8 @@ scale = sizes.roadScale
 
         <TabbedPane
           tabs={[
-            { title: "params/light/core.json", content: <Code source={params} lang="json" /> },
             { title: "layers/roads.exp", content: <Code source={source} /> },
+            { title: "params/light/core.json", content: <Code source={params} lang="json" /> },
           ]}
         />
 

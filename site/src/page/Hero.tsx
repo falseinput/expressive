@@ -1,4 +1,5 @@
 import { Code } from "./Code.tsx";
+import { CopyCommand } from "./CopyCommand.tsx";
 
 const SOURCE = `"line-width": std.byZoom(
   { "8": 0.6, "20": 22 },
@@ -29,12 +30,8 @@ export function Hero() {
               imports.
             </p>
             <div className="mt-5 flex flex-col gap-2 font-mono text-[12px] sm:flex-row sm:flex-wrap">
-              <code className="rounded border border-line bg-panel px-3 py-2 text-ink">
-                npm i -g @falseinput/expressive
-              </code>
-              <code className="rounded border border-line bg-panel px-3 py-2 text-ink">
-                expc -i style.exp -o style.json
-              </code>
+              <CopyCommand command="npm i @falseinput/expressive" />
+              <CopyCommand command="expc -i style.exp -o style.json" />
             </div>
           </div>
         </div>
