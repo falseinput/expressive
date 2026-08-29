@@ -1,0 +1,508 @@
+# Expressive - full documentation
+
+> Expressive is a toolkit and a DSL for creating MapLibre compatible styles. This file expands
+> every section of the project README: the toolchain, the `expc` CLI, the compiler library API,
+> the complete language reference with the JSON each construct compiles to, the known
+> limitations, and the demo page that compiles a full style in the browser.
+>
+> Index: <https://falseinput.github.io/expressive/llms.txt>
+
+## What Expressive is
+
+Expressive Language compiles to MapLibre style specification JSON. It lets you split styles into
+multiple files, use variables, color functions, conditionals, and write expressions using nice and
+readable syntax.
+
+Three pieces make up the toolkit:
+
+- The **language and compiler**, published to npm as
+  [@falseinput/expressive](https://www.npmjs.com/package/@falseinput/expressive). The compiler is
+  an ES module with TypeScript declarations and runs the same on Node and in the browser.
+- The **`expc` CLI**, which ships in that package. It compiles a `.exp` file to JSON, and serves
+  local `*style.exp` files with hot reload, providing diagnostics such as type errors or warnings.
+- The **[Expressive Language Support](https://marketplace.visualstudio.com/items?itemName=falseinput.expressive-language-support)**
+  extension for Visual Studio Code, which provides syntax highlighting, autocomplete and more.
+
+The [expressive](https://github.com/falseinput/expressive) repository holds the README and the
+demo page; the language source lives in the npm package.
+
+## Try it
+
+[falseinput.github.io/expressive](https://falseinput.github.io/expressive) compiles a style in your
+browser. Move a parameter and the map recompiles as you drag.
+
+The page renders [openfreemap-expressive](https://github.com/falseinput/openfreemap-expressive),
+the OpenFreeMap Bright style rebuilt as parameters and layer modules. Read that repository to see
+how a full 119 layer style is put together, or fork it and change the parameters.
+
+How the demo works, for anyone reading the page source in
+[`site/`](https://github.com/falseinput/expressive/tree/main/site):
+
+- The style sources (`.exp` and `.json` under `styles/bright`) are pulled in at build time and
+  loaded into a virtual file map keyed by POSIX path, rooted at the style directory. The entry is
+  `/style.light.exp`.
+- Parameters live in JSON files - `/params/light/core.json` and `/params/light/detail.json` - as
+  entries carrying a `title`, a `description`, a `value`, and a range. Moving a control rewrites
+  the value in that JSON before compiling; nothing else in the style is touched.
+- Compilation runs in a Web Worker calling the same `compile(files, entry)` the CLI uses, debounced
+  while a slider is moving. On success the worker posts the parsed style and MapLibre swaps it in;
+  on failure the page keeps the last style that compiled, so a bad intermediate state never tears
+  the page down. Errors are reported as `file:line:col message`.
+- The page's own surfaces are tinted from the same compiled JSON MapLibre reads, clamped and
+  contrast-checked on the way in.
+
+### See it in action
+
+```js
+// colors.exp
+base_saturation = 1
+
+{
+    "land": std.hsl(64, 25 * base_saturation, 91),
+    "water": std.hsl(194, 98 * base_saturation, 50),
+    "roads": std.hsl(60, 3 * base_saturation, 45)
+}
+
+// water-colors.exp
+colors = import "./colors.exp"
+
+{
+    "ocean": when {
+        zoom() > 16 -> std.lighten(colors.water, 20),
+        zoom() > 10 -> std.lighten(colors.water, 10),
+        true -> colors.water
+    },
+    "lake": std.lighten(colors.water, 15),
+    "lagoon": std.darken(colors.water, 30)
+}
+```
+
+## Install
+
+Run
+
+```bash
+npm i -g @falseinput/expressive
+```
+
+## Use
+
+### compile (default)
+
+Compile an Expressive file to MapLibre style JSON.
+
+```bash
+expc -i <input> -o <output>
+```
+
+| Flag | Alias | Required | Description |
+|------|-------|----------|-------------|
+| `--input` | `-i` | yes | Path to the `.exp` source file |
+| `--output` | `-o` | yes | Path to the output `.json` file |
+
+Example:
+
+```bash
+expc -i style.exp -o style.json
+```
+
+### serve
+
+Builds all `*style.exp` files in the current directory and serves them with hot reload.
+
+```bash
+expc serve [--port <port>]
+```
+
+| Flag | Alias | Default | Description |
+|------|-------|---------|-------------|
+| `--port` | `-p` | `3000` | Port to listen on |
+
+Example:
+
+```bash
+expc serve --port 8080
+```
+
+### docs
+
+Print the Expressive language reference and exit.
+
+```bash
+expc docs
+```
+
+### Rewriting existing MapLibre styles
+
+Start with changing style extension from .json to .exp and progressively split the style into
+smaller parts. Try using variables for things like sizes or colors.
+
+## Library
+
+The package also ships the compiler as a library. `compile` is one ES module with TypeScript
+declarations, and it runs the same on Node and in the browser.
+
+`compile` takes the files it compiles and never reads a disk. Keys are absolute POSIX-style paths,
+and `entryPath` names the program to compile.
+
+```js
+import { compile } from "@falseinput/expressive";
+
+const result = compile(
+  {
+    "/colors.exp": `{ "water": std.hsl(194, 98, 50) }`,
+    "/style.exp": `colors = import "./colors.exp"\n{ "version": 8, "layers": [] }`,
+  },
+  "/style.exp",
+);
+
+if (result.ok) {
+  console.log(result.json);
+} else {
+  console.error(result.errorDetails);
+}
+```
+
+The map is the whole file system the compiler sees. Imports resolve inside the entry file's
+directory and cannot escape it, so the caller decides what a style can read by deciding what goes
+in the map.
+
+On Node, `readStyle` fills that map from a directory. It collects `.exp` and `.json` files, keys
+them by their path below the directory, and skips symbolic links, `node_modules` and
+dot-directories, so nothing outside the directory reaches the map.
+
+```js
+import { compile } from "@falseinput/expressive";
+import { readStyle } from "@falseinput/expressive/fs";
+
+compile(readStyle("./styles/bright"), "/style.light.exp");
+```
+
+`compile` returns `{ ok: true, json }`, or `{ ok: false, errorDetails }` where each error carries
+`file`, `line`, `col`, `message` and `srcLine`.
+
+Because the file map is the whole file system, the same call works in a browser worker: hand it
+sources loaded over the network or bundled at build time, and the result is the style JSON you
+pass to `new maplibregl.Map({ style })`. That is exactly what the demo page does.
+
+## Language server
+
+Expressive comes with
+[Expressive Language Support](https://marketplace.visualstudio.com/items?itemName=falseinput.expressive-language-support)
+extension for Visual Studio Code.
+
+Extension helps you catch errors like mismatched types and provides autocomplete for all standard
+library functions and expressions.
+
+## Features
+
+Expressive aims to provide everything you may need for creating complex map styles, without being
+overwhelming.
+
+### Imports
+
+Imported files are interpreted as Expressive. When an import ends with `.json`, the file is parsed
+as JSON. `import` can be assigned to a variable or used inside objects.
+
+```js
+typography = import "./typography.exp"
+```
+
+By convention, Expressive files have an `.exp` extension.
+
+`import` evaluates to the last statement in the referenced file. To import multiple properties, you
+can put them in an object.
+
+A full style uses this to give each concern one file. In openfreemap-expressive, the entry file
+imports one module per layer group and owns nothing but the stacking order:
+
+```js
+// style.light.exp - modules own their layers, this file owns the stacking.
+land = import "./layers/land.exp"
+water = import "./layers/water.exp"
+roads = import "./layers/roads.exp"
+
+{
+  "version": 8,
+  "sources": {
+    "openmaptiles": { "type": "vector", "url": "https://tiles.openfreemap.org/planet" }
+  },
+  "sprite": "https://tiles.openfreemap.org/sprites/ofm_f384/ofm",
+  "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  "layers": [
+    ...land.base,
+    ...water.bodies,
+    ...roads.surface
+  ]
+}
+```
+
+Parameters are ordinary JSON imported the same way, which is what lets an outside tool - a UI, a
+script - rewrite a value without parsing the language:
+
+```js
+core = import "../params/light/core.json"
+hueOffset = core.paletteHue.value
+```
+
+### Expression syntax
+
+The default expression syntax was made for computers. Expressive fixes that.
+
+```js
+// Write expressions like normal functions
+zoom(); // -> ["zoom"]
+
+// Use math operators: *, /, +, -
+get("road_width") * 0.3; // -> ["*", ["get", "road_width"], 0.3]
+
+// Math operators eagerly reduce arguments if possible
+2 * 3 + 1; // -> 7
+```
+
+Eager reduction is what makes variables free: arithmetic on known numbers is folded at compile
+time, so only the parts that genuinely depend on map state survive into the output expression.
+
+### Zoom curves
+
+Use `std.byZoom` and `std.stepByZoom` to write a zoom-varying value as its stops. Keys are zoom
+levels. Expressive sorts the stops by zoom ascending, the order MapLibre requires.
+
+```js
+// Interpolate between stops
+std.byZoom({ 12: 0.5, 20: 13 });
+// -> ["interpolate", ["linear"], ["zoom"], 12, 0.5, 20, 13]
+
+// Pass a base for exponential interpolation
+std.byZoom({ 12: 0.5, 20: 13 }, 1.2);
+// -> ["interpolate", ["exponential", 1.2], ["zoom"], 12, 0.5, 20, 13]
+
+// Step between stops. The first argument is the output below the first stop
+std.stepByZoom(0, { 14: 1 });
+// -> ["step", ["zoom"], 0, 14, 1]
+```
+
+Stop values are numbers, strings, colors, or expressions.
+
+```js
+water = std.hsl(194, 98, 50);
+std.byZoom({ 8: water, 12: std.darken(water, 30) });
+// -> ["interpolate", ["linear"], ["zoom"], 8, "hsla(194, 98%, 50%, 1)", 12, "hsla(194, 98%, 35%, 1)"]
+```
+
+### Color functions
+
+Use color functions to manipulate and mix colors.
+
+```js
+// Define colors using safe constructors
+base = std.hsl(210, 80, 60);
+semi = std.hsla(210, 80, 60, 0.5);
+
+// Manipulate colors
+lighter = std.lighten(base, 20);
+darker = std.darken(base, 10);
+vivid = std.saturate(base, 30);
+muted = std.desaturate(base, 15);
+shifted = std.adjustHue(base, 30);
+
+// Mix colors
+blend = std.mix(base, std.hsl(0, 90, 50), 0.5);
+
+// Return black or white for maximum contrast (WCAG)
+label_color = std.colorContrast(base);
+```
+
+Colors compile to `hsla(h, s%, l%, a)` strings, which MapLibre accepts anywhere a color is
+expected - including as the stop values of a zoom curve.
+
+A whole palette can be derived from a handful of parameters this way: hold the base tokens in one
+file, apply global modifiers (a hue offset, a saturation multiplier, a lightness offset) once, and
+let every layer read only the derived colors. Moving one parameter then moves the entire map
+without breaking the relationships between families, and `std.colorContrast` keeps label colors
+legible against whatever the canvas became.
+
+### Types
+
+Expressive supports strings, numbers, booleans, arrays, and objects.
+
+Strings interpret the JSON escape sequences `\n`, `\t`, `\r`, `\b`, `\f`, `\"`, `\\`, `\/` and
+`\uXXXX`. Any other escape is an error. Use `\n` to stack label lines in `text-field`.
+
+```js
+// string
+variant = "light"
+
+// number
+default_font_size = 12
+
+// boolean
+is_beta = true
+
+// array
+default_fontstack = ["Noto-Sans", "sans-serif"]
+
+// object
+typography = {
+    "sizes": {
+        "s": default_font_size,
+        "m": default_font_size * 1.2,
+        "l": default_font_size * 1.4
+    },
+    "base_font": when {
+        // A comment
+        is_beta -> ["Arial", "sans-serif"], // Inline comment
+        true -> default_fontstack
+    }
+}
+```
+
+Comments are `//` to end of line, and may stand alone or trail a value.
+
+### Object keys
+
+An object key is a quoted string, a number, or a bare identifier. Every key becomes a string in the
+output.
+
+```js
+// A number reads well for zoom levels
+{ 12: 0.5, 20: 13 }
+// -> { "12": 0.5, "20": 13 }
+
+// An identifier reads well for names you choose
+{ water: "blue", land: "sand" }
+// -> { "water": "blue", "land": "sand" }
+
+// Quotes carry any other name, such as a hyphenated MapLibre property
+{ "line-width": 3, "text-field": get("name") }
+```
+
+A numeric key normalizes to the number's value, the way JavaScript does. `1.50` and `1.5` are the
+same key `"1.5"`.
+
+```js
+{ 1.50: "a", 1.5: "b" }
+// -> { "1.5": "b" }
+```
+
+Two keys that normalize to the same string are a duplicate, whichever forms they use. Expressive
+reports `{ 12: 1, "12": 2 }` as an error.
+
+### Spread
+
+`...` copies the members of an object into an object, or the elements of an array into an array.
+
+```js
+base = {
+    "line-color": colors.roads,
+    "line-width": 1
+}
+
+// Members are applied in order, so a later member wins
+{ ...base, "line-width": 3 }
+// Evaluates to:
+// { "line-color": ..., "line-width": 3 }
+
+// Arrays inline their elements at the position of the spread
+default_fontstack = ["Noto-Sans", "sans-serif"]
+[ "Arial", ...default_fontstack ]
+```
+
+Spread copies one level. Nest another spread to merge deeper.
+
+```js
+{ ...layer, "paint": { ...layer.paint, "line-width": 3 } }
+```
+
+Array spread is how a style assembles its layer list: each module exports arrays of layers, and the
+entry file spreads them in draw order.
+
+## Conditionals
+
+Expressive handles conditional logic with a `when` expression. `when` can be used to control
+program flow and as a replacement for the `match` MapLibre expression.
+
+```js
+variant = "dark"
+when {
+    variant == "light" -> "white",
+    variant == "dark" -> "black",
+    true -> "white"
+}
+// Evaluates to:
+// "black"
+```
+
+When the subject or condition is a MapLibre expression (like `get()` or `zoom()`), `when` evaluates
+to a `match` expression.
+
+```js
+when (get("road_category")) {
+    "motorway" -> 14,
+    "trunk" -> 12,
+    "primary" -> 10,
+    else -> 7
+}
+// Evaluates to:
+[
+    "match",
+    ["get", "road_category"],
+    "motorway",
+    14,
+    "trunk",
+    12,
+    "primary",
+    10,
+    7
+]
+```
+
+Two forms, then: a subjectless `when { condition -> value, ... }` whose fallback arm is `true`, and
+a subject form `when (subject) { case -> value, else -> value }` whose fallback arm is `else`. A
+`when` over values known at compile time collapses to the chosen value; a `when` over map state
+becomes a `match` in the output.
+
+## Evaluation
+
+Expressive evaluates to JSON. The last statement in a file is the program result.
+
+That single rule covers both uses of a file: a style file ends with the style object, and a module
+ends with the object of the things it exports.
+
+## Limitations
+
+Expressive is in an ALPHA state. Some of the things that you might expect to work are not yet
+implemented; some will never be.
+
+No support:
+
+- Logical operators (`and`, `or`, `not`)
+- No type checks for layers and sources
+
+Limited support:
+
+- Type inference - it's done on a best-effort basis, in many cases types are not inferred, falling
+  back to an "unknown" type that does not raise type error.
+
+Not planned:
+
+- Fetching data.
+- Support for editors other than VSC.
+
+## Support
+
+Expressive is built after hours. If you like what you see here, you can **star this repo** and
+spread the word.
+
+If you are considering supporting development of Expressive financially, you can do it through:
+
+- [GitHub Sponsors](https://github.com/sponsors/falseinput)
+- [Buy me a coffee](https://buymeacoffee.com/falseinput)
+
+Thank you! <3
+
+## License
+
+Copyright (c) 2026 Zbigniew Matysek (falseinput)
+
+See full license in [LICENSE](https://github.com/falseinput/expressive/blob/main/LICENSE).

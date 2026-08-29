@@ -1,0 +1,62 @@
+# Expressive
+
+> Expressive is a toolkit and a DSL for creating MapLibre compatible styles. Expressive Language compiles to MapLibre style specification JSON: it lets you split a style into multiple files, use variables, color functions, conditionals, and write MapLibre expressions in a readable syntax. The `expc` CLI compiles and serves local `style.exp` files with diagnostics, and the compiler also ships as a library that runs the same on Node and in the browser. Expressive is in an ALPHA state.
+
+This page, <https://falseinput.github.io/expressive/>, is the demo: it compiles a real style in your browser and re-renders the map as you drag a parameter. The style it renders is [openfreemap-expressive](https://github.com/falseinput/openfreemap-expressive), the OpenFreeMap Bright style rebuilt as parameters and layer modules - a 119 layer style whose sources are compiled client-side in a Web Worker with the same `compile` function the CLI uses. The language source is published to npm as [@falseinput/expressive](https://www.npmjs.com/package/@falseinput/expressive); the [expressive](https://github.com/falseinput/expressive) repository holds the README and this page.
+
+Install and use:
+
+```bash
+npm i -g @falseinput/expressive
+
+expc -i style.exp -o style.json   # compile (default command)
+expc serve --port 8080            # build all *style.exp here, serve with hot reload
+expc docs                         # print the language reference and exit
+```
+
+| Command | Flag | Alias | Required | Default | Description |
+|---------|------|-------|----------|---------|-------------|
+| compile | `--input` | `-i` | yes | - | Path to the `.exp` source file |
+| compile | `--output` | `-o` | yes | - | Path to the output `.json` file |
+| serve | `--port` | `-p` | no | `3000` | Port to listen on |
+
+As a library, `compile` takes the files it compiles and never reads a disk. Keys are absolute POSIX-style paths, `entryPath` names the program to compile, and imports resolve inside the entry file's directory and cannot escape it - so the caller decides what a style can read by deciding what goes in the map. It returns `{ ok: true, json }` or `{ ok: false, errorDetails }`, where each error carries `file`, `line`, `col`, `message` and `srcLine`. On Node, `readStyle` fills that map from a directory, collecting `.exp` and `.json` files and skipping symbolic links, `node_modules` and dot-directories.
+
+```js
+import { compile } from "@falseinput/expressive";
+import { readStyle } from "@falseinput/expressive/fs";
+
+compile(readStyle("./styles/bright"), "/style.light.exp");
+```
+
+Language features, each covered in full in the reference below:
+
+- Imports - `typography = import "./typography.exp"`. An import evaluates to the last statement of the referenced file; `.json` files are parsed as JSON.
+- Expression syntax - `zoom()`, `get("road_width") * 0.3`, with math operators that eagerly reduce constant arguments.
+- Zoom curves - `std.byZoom({ 12: 0.5, 20: 13 })` and `std.stepByZoom(0, { 14: 1 })`, stops sorted ascending for MapLibre.
+- Color functions - `std.hsl`, `std.hsla`, `std.lighten`, `std.darken`, `std.saturate`, `std.desaturate`, `std.adjustHue`, `std.mix`, `std.colorContrast`.
+- Types - strings (with JSON escapes), numbers, booleans, arrays, objects; object keys may be quoted strings, numbers, or bare identifiers.
+- Spread - `{ ...base, "line-width": 3 }` and `[ "Arial", ...default_fontstack ]`, copying one level.
+- Conditionals - `when { cond -> value, true -> fallback }`, which becomes a MapLibre `match` when the subject is an expression such as `get()` or `zoom()`.
+- Evaluation - a file evaluates to JSON; its last statement is the program result.
+
+Alpha limitations: no logical operators (`and`, `or`, `not`); no type checks for layers and sources; type inference is best-effort and falls back to an "unknown" type that raises no error. Not planned: fetching data, and support for editors other than Visual Studio Code.
+
+## Docs
+
+- [Full documentation](https://falseinput.github.io/expressive/llms-full.txt): every section of the README expanded - CLI reference, library API, and the complete language reference with examples and output JSON.
+- [README](https://github.com/falseinput/expressive/blob/main/README.md): the canonical source of the above, on GitHub.
+- [npm package](https://www.npmjs.com/package/@falseinput/expressive): `@falseinput/expressive`, the compiler and the `expc` CLI.
+- [VS Code extension](https://marketplace.visualstudio.com/items?itemName=falseinput.expressive-language-support): Expressive Language Support - syntax highlighting, autocomplete for the standard library, and diagnostics such as mismatched types.
+
+## Examples
+
+- [openfreemap-expressive](https://github.com/falseinput/openfreemap-expressive): the OpenFreeMap Bright style rebuilt in Expressive as parameters and layer modules, 119 layers. Read it to see how a full style is put together, or fork it and change the parameters.
+- [Live demo](https://falseinput.github.io/expressive/): compiles that style in the browser; move a parameter and the map recompiles as you drag.
+- [Demo source](https://github.com/falseinput/expressive/tree/main/site): the React page, including the Web Worker that calls `compile` on a virtual file map.
+
+## Optional
+
+- [MapLibre style specification](https://maplibre.org/maplibre-style-spec/): the JSON format Expressive compiles to.
+- [GitHub Sponsors](https://github.com/sponsors/falseinput) and [Buy me a coffee](https://buymeacoffee.com/falseinput): Expressive is built after hours; starring the repo and spreading the word helps too.
+- [License](https://github.com/falseinput/expressive/blob/main/LICENSE): Copyright (c) 2026 Zbigniew Matysek (falseinput).
