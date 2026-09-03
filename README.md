@@ -89,6 +89,65 @@ Example:
 expc serve --port 8080
 ```
 
+### pack
+
+Pack a style and everything it imports into a single `.expressive` archive, together with its metadata.
+
+```bash
+expc pack [target] [--output <file>]
+```
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `target` | current dir | Style directory, or the `expressive.json` inside it |
+
+| Flag | Alias | Default | Description |
+|------|-------|---------|-------------|
+| `--output` | `-o` | `<name>-<version>.expressive` | Path to write the archive to |
+
+A style directory is described by an `expressive.json` at its root:
+
+```json
+{
+    "name": "navigation-style",
+    "version": "1.2.0",
+    "entry": "style.exp",
+    "author": { "name": "John Doe", "url": "https://example.com" },
+    "license": "MIT",
+    "description": "A dark basemap style"
+}
+```
+
+`name` is a kebab-case identifier, `version` is the style's semver, `entry` is the style's entry point relative to the directory, and `license` is an [SPDX identifier](https://spdx.org/licenses/).
+
+The archive records two more fields that `pack` fills in for you: `formatVersion`, the archive layout version, and `expressive`, the compiler that built it. Both describe the build rather than the style, so you never write them by hand — and every read checks them, refusing a pack from an incompatible version rather than half-understanding it.
+
+One directory is one style: the manifest names the single entry point, so a manifest describes exactly one archive. A pack carries only `.exp` and `.json` files, and the style is compiled before the archive is written — so a pack that exists is a pack that builds.
+
+```bash
+expc pack ./navigation-style
+```
+
+### unpack
+
+Extract an archive back to an editable style directory.
+
+```bash
+expc unpack <pack> [--output <dir>]
+```
+
+| Flag | Alias | Default | Description |
+|------|-------|---------|-------------|
+| `--output` | `-o` | `<name>-<version>` | Directory to extract into |
+
+Sources are restored where the author had them, with `expressive.json` beside them, so packing the result again reproduces the same archive byte for byte.
+
+Archives compile directly, with no need to unpack first:
+
+```bash
+expc -i navigation-style-1.2.0.expressive -o style.json
+```
+
 ### docs
 
 Print the Expressive language reference and exit.
@@ -137,6 +196,22 @@ compile(readStyle("./styles/bright"), "/style.light.exp");
 ```
 
 `compile` returns `{ ok: true, json }`, or `{ ok: false, errorDetails }` where each error carries `file`, `line`, `col`, `message` and `srcLine`.
+
+### Exchange format
+
+`@falseinput/expressive/pack` reads and writes `.expressive` archives. It runs on both hosts — a browser needs `unpack` to compile a pack it was handed — and returns errors as values rather than throwing.
+
+```js
+import { compile } from "@falseinput/expressive";
+import { pack, unpack } from "@falseinput/expressive/pack";
+
+const opened = unpack(bytes);
+if (opened.ok) {
+    const result = compile(opened.files, `/${opened.manifest.entry}`);
+}
+```
+
+`unpack` returns the same file map shape `compile` takes, so a pack and the directory it came from compile to identical JSON with identical diagnostic paths. Archive entry names are treated as untrusted: paths that escape the source root, files outside the `.exp`/`.json` whitelist, and archives over the size caps are all rejected before anything is decompressed.
 
 ## Language server
 
@@ -383,6 +458,7 @@ Thank you! <3
 
 ## License
 
-Copyright (c) 2026 Zbigniew Matysek (falseinput)
+MIT. Copyright (c) 2026 Zbigniew Matysek (falseinput).
 
-See full license in LICENSE.
+See LICENSE for the full text, and for the notices covering sources this
+project derives from.
