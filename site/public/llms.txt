@@ -11,6 +11,8 @@ npm i -g @falseinput/expressive
 
 expc -i style.exp -o style.json   # compile (default command)
 expc serve --port 8080            # build all *style.exp here, serve with hot reload
+expc pack ./navigation-style      # pack a style and its imports into one .expressive archive
+expc unpack navigation-style-1.2.0.expressive   # extract an archive back to a directory
 expc docs                         # print the language reference and exit
 ```
 
@@ -19,6 +21,8 @@ expc docs                         # print the language reference and exit
 | compile | `--input` | `-i` | yes | - | Path to the `.exp` source file |
 | compile | `--output` | `-o` | yes | - | Path to the output `.json` file |
 | serve | `--port` | `-p` | no | `3000` | Port to listen on |
+| pack | `--output` | `-o` | no | `<name>-<version>.expressive` | Path to write the archive to |
+| unpack | `--output` | `-o` | no | `<name>-<version>` | Directory to extract into |
 
 As a library, `compile` takes the files it compiles and never reads a disk. Keys are absolute POSIX-style paths, `entryPath` names the program to compile, and imports resolve inside the entry file's directory and cannot escape it - so the caller decides what a style can read by deciding what goes in the map. It returns `{ ok: true, json }` or `{ ok: false, errorDetails }`, where each error carries `file`, `line`, `col`, `message` and `srcLine`. On Node, `readStyle` fills that map from a directory, collecting `.exp` and `.json` files and skipping symbolic links, `node_modules` and dot-directories.
 
@@ -27,6 +31,18 @@ import { compile } from "@falseinput/expressive";
 import { readStyle } from "@falseinput/expressive/fs";
 
 compile(readStyle("./styles/bright"), "/style.light.exp");
+```
+
+`@falseinput/expressive/pack` reads and writes `.expressive` archives - a style and everything it imports packed into one file, together with an `expressive.json` manifest naming the entry point, version, author and SPDX license. `pack` stamps the archive layout version and the compiler that built it, and every read checks both, refusing a pack from an incompatible major rather than half-understanding it. `unpack` returns the same file map shape `compile` takes, so a pack and the directory it came from compile to identical JSON; archive entry names are treated as untrusted, and paths escaping the source root, files outside the `.exp`/`.json` whitelist, and archives over the size caps are rejected before anything is decompressed. Archives also compile directly, with no need to unpack first.
+
+```js
+import { compile } from "@falseinput/expressive";
+import { pack, unpack } from "@falseinput/expressive/pack";
+
+const opened = unpack(bytes);
+if (opened.ok) {
+    const result = compile(opened.files, `/${opened.manifest.entry}`);
+}
 ```
 
 Language features, each covered in full in the reference below:
@@ -59,4 +75,4 @@ Alpha limitations: no logical operators (`and`, `or`, `not`); no type checks for
 
 - [MapLibre style specification](https://maplibre.org/maplibre-style-spec/): the JSON format Expressive compiles to.
 - [GitHub Sponsors](https://github.com/sponsors/falseinput) and [Buy me a coffee](https://buymeacoffee.com/falseinput): Expressive is built after hours; starring the repo and spreading the word helps too.
-- [License](https://github.com/falseinput/expressive/blob/main/LICENSE): Copyright (c) 2026 Zbigniew Matysek (falseinput).
+- [License](https://github.com/falseinput/expressive/blob/main/LICENSE): MIT. Copyright (c) 2026 Zbigniew Matysek (falseinput). The file also carries the notices covering sources this project derives from.

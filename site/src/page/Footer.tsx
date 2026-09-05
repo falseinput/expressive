@@ -31,7 +31,14 @@ export function Footer() {
           >
             VS Code extension
           </a>
-          <span>Copyright (c) 2026 Zbigniew Matysek (falseinput)</span>
+          <a
+            href="https://github.com/falseinput/expressive/blob/main/LICENSE"
+            target="_blank"
+            rel="noreferrer"
+          >
+            MIT License
+          </a>
+          <span>&copy; 2026 Zbigniew Matysek (falseinput)</span>
         </div>
       </div>
     </footer>
