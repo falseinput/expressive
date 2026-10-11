@@ -17,7 +17,6 @@ type Props = {
   overrides: Record<string, ParamValue>;
   onChange: (name: string, value: ParamValue) => void;
   onReset: () => void;
-  pending: boolean;
   durationMs: number | null;
   errors: string[];
   mapStyle: StyleSpecification | null;
@@ -36,7 +35,6 @@ export function Studio({
   overrides,
   onChange,
   onReset,
-  pending,
   durationMs,
   errors,
   mapStyle,
@@ -81,7 +79,7 @@ export function Studio({
               </button>
             ))}
             <span className="ml-auto font-mono text-[10.5px] tabular-nums text-ink-muted">
-              {pending ? "compiling" : durationMs !== null ? `${durationMs} ms` : "idle"}
+              {durationMs !== null ? `${durationMs} ms` : "idle"}
             </span>
           </div>
 

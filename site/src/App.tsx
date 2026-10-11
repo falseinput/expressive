@@ -21,7 +21,7 @@ import { ZoomSection } from "./page/sections/ZoomSection.tsx";
 export default function App() {
   const [tier, setTier] = useState<Tier>("core");
   const [overrides, setOverrides] = useState<Record<string, ParamValue>>({});
-  const { style, errors, pending, durationMs, compile } = useCompiler();
+  const { style, errors, durationMs, compile } = useCompiler();
 
   const ready = Boolean(sources[paramPaths.core] && sources[entry]);
 
@@ -42,8 +42,16 @@ export default function App() {
     return next;
   }, [ready, overrides]);
 
+  // The first compile runs at once, so the maps get a style as soon as the page
+  // mounts. Later ones wait for a pause in the edits.
+  const compiled = useRef(false);
   useEffect(() => {
     if (!files) return;
+    if (!compiled.current) {
+      compiled.current = true;
+      compile(files, entry);
+      return;
+    }
     const timer = setTimeout(() => compile(files, entry), 120);
     return () => clearTimeout(timer);
   }, [files, compile]);
@@ -122,7 +130,6 @@ export default function App() {
           overrides={overrides}
           onChange={setParam}
           onReset={() => setOverrides({})}
-          pending={pending}
           durationMs={durationMs}
           errors={errors}
           mapStyle={mapStyle}

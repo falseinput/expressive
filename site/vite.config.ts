@@ -9,5 +9,4 @@ export default defineConfig({
   resolve: {
     alias: { "@": path.resolve(import.meta.dirname, "src") },
   },
-  worker: { format: "es" },
 });
